@@ -1,0 +1,122 @@
+import math
+import pygame as pg
+pg.init()
+
+WIDTH, HEIGHT = 800, 800
+WIN = pg.display.set_mode((WIDTH, HEIGHT))
+pg.display.set_caption("Planet Simulation")
+
+WHITE = (255,255,255)
+YELLOW = (255,255,0)
+BLUE = (0,102,204)
+BROWN = (255,102,0)
+DARK_GREY = (158,158,158)
+SAFFRON = (255,204,102)
+
+FONT = pg.font.SysFont("comicsans", 16)
+
+class Planet:
+    AU = 146.6e6 * 1000 #in metres  
+    G = 6.67428e-11
+    SCALE = 250 / AU #1AU = 100 pixels 
+    TIMESTEP= 24*3600 #NO.OF SECONDS IN A DAY 
+    def __init__(self,x,y,radius,color,mass):
+        self.x=x             #we will consider this is in meters ,i.e, SI unit 
+        self.y=y
+        self.radius=radius   #we will consider this is in meters ,i.e, SI unit 
+        self.mass=mass       #we will consider this is in Kg ,i.e, SI unit 
+        self.color=color
+        
+        self.orbit=[]
+        self.sun=False
+        self.distance_to_sun = 0
+        
+        self.x_vel=0         # we will consider this is in m/s ,i.e, SI unit 
+        self.y_vel=0         # we will consider this is in m/s ,i.e, SI unit 
+    def draw(self,WIN):      # WIN = particular window that we need to draw the planet on
+        x=self.x * self.SCALE + WIDTH/2
+        y=self.y * self.SCALE + HEIGHT/2
+        # pg.display(self.distance_to_sun)
+        
+        if len(self.orbit) > 2 :
+            updated_points=[]
+            for point in self.orbit:
+                x,y=point
+                x=x*self.SCALE + WIDTH/2
+                y=y*self.SCALE + HEIGHT/2
+                updated_points.append((x,y))
+            pg.draw.lines(WIN,self.color,False,updated_points,2)
+        
+        pg.draw.circle(WIN,self.color,(x,y),self.radius)       #py.draw.circle(""where"",""color"",""position"",""radius"")
+        
+    def attraction(self,other):   # here 'other' is another object that we wanna find attraction force with basically gravitational force 
+        other_x,other_y = other.x,other.y
+        distance_x=other_x-self.x
+        distance_y=other_y-self.y
+        distance=math.sqrt((distance_x**2)+(distance_y**2))
+        
+        if other.sun:
+            self.distance_to_sun=distance
+        force = ( Planet.G*self.mass*other.mass)/(distance**2)
+        theta = math.atan2(distance_y,distance_x)
+        force_x= math.cos(theta) * force            # Magnitude of Froe in x
+        force_y= math.sin(theta) * force            # Magnitude of Froe in y
+        return force_x,force_y
+    
+    
+    # We are gonna be converting the the acceleration derived from total fx and fy derived 
+    # to velocity and update velocity and and then then we will convert that velocity to distance 
+    # indicating final position of the the planet with x and y coordinates 
+    
+    # NOTE : THIS CALCULATIONS WILL BE DONE AFTER EVERY CHANGE IN POSITION SINCE ITS A LOOP 
+    # HENCE EVERY TIME IT CHANGES X,Y IT WILL RECALL THE ATTRACTION FUNCTION TO CALCULATE THE NEW FORCE BASED ON NEW POSITION 
+    # WHICH CHANGES THE DISTANCE BETWEEN THE OBJECTS HENCE GIVING DIFF VALUE FOR FORCE EVERYTIME AFTER POSITION CHANGE 
+    
+    
+    def update_position(self, planets):
+        total_fx = total_fy = 0
+        for planet in planets:
+            if self == planet:
+                continue
+            fx, fy = self.attraction(planet)
+            total_fx += fx
+            total_fy += fy
+
+        self.x_vel += total_fx / self.mass * self.TIMESTEP
+        self.y_vel += total_fy / self.mass * self.TIMESTEP
+
+        self.x += self.x_vel * self.TIMESTEP
+        self.y += self.y_vel * self.TIMESTEP
+        self.orbit.append((self.x, self.y))         
+                          
+def main():
+    run = True
+    clock=pg.time.Clock()
+    # Object 
+    sun = Planet(0,0,30,YELLOW,1.98892e30) #(x=0,y=0 so that sun is in the centre while using x,y in draw method ,Radius in m,and mass of sun in kg)
+    sun.sun=True
+    earth = Planet(-1* Planet.AU,0,16,BLUE,5.9722e24)
+    earth.y_vel= 29.783 * 1000              #This is in m/s
+    mars= Planet(-1.524* Planet.AU,0,12,BROWN,6.41693e23)
+    mars.y_vel = 24.077 * 1000              #This is in m/s
+    mercury=Planet(0.387*Planet.AU,0,8,DARK_GREY,3.30e23)
+    mercury.y_vel= -47.4 * 1000              #This is in m/s
+    venus = Planet(0.732*Planet.AU,0,14,SAFFRON,4.87e24 )
+    venus.y_vel= -35.02 * 1000              #This is in m/s
+
+    planets =[sun,earth,mars,mercury,venus]
+    
+    while run:
+        clock.tick(60)
+        WIN.fill((0,0,0))
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                run = False
+                
+        for planet in planets:  # this will infinitely draw all the planets 
+            planet.update_position(planets)
+            planet.draw(WIN)    #this functions uses to draw the particular planet in planet function and draws in the particular WINdow
+        pg.display.update()
+    pg.quit()
+
+main()
